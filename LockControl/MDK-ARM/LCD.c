@@ -31,7 +31,7 @@ uint8_t LCD_init (void){
 	LCD_put(0x08);
 	LCD_put(0x01);
 	LCD_put(0x06);
-	LCD_put(0x0D);
+	LCD_put(0x0C);
 	
 	return 1;
 }

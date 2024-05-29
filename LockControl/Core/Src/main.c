@@ -71,14 +71,15 @@ static void MX_USART1_UART_Init(void);
 uint8_t state_system = 0;
 char password_chr[20] = "12345678";
 uint8_t password_int = 0;
-uint8_t password = 0;
+uint8_t password;
 
 LCD1602_4bit_t LCD1;
 
 uint8_t status;
 uint8_t str[MAX_LEN]; // Max_LEN = 16
 
-uint8_t button_value;
+KeyPad_4x4_t keypad;
+uint8_t count;
 /* USER CODE END 0 */
 
 /**
@@ -140,12 +141,13 @@ int main(void)
 		{
 			// Wait to read card 
 			case 0:
+				LCD1.gotoXY = LCD_Goto_XY(0,0);
 				LCD1.print = LCD_print((uint8_t*)"Pass your card!");
 				status = MFRC522_Request(PICC_REQIDL, str);
 				status = MFRC522_Anticoll(str);
 				
 				// If card isn't read, wait until it is read
-				if((str[0]==0x00) && (str[1]==0x00) && (str[2]==0x00) && (str[3]==0x00) && (str[4]==0x00))
+				if(((str[0]==0x70) || (str[0]==0x26) || (str[0]==0x93) || (str[0]==0xB3) || (str[0]==0x03)) && (str[1]==0x20) && (str[2]==0x00) && (str[3]==0x00) && (str[4]==0x00))
 				{
 					state_system = 0;
 				}
@@ -153,30 +155,44 @@ int main(void)
 				else if((str[0]==0x70) && (str[1]==0xB1) && (str[2]==0x1A) && (str[3]==0x53) && (str[4]==0x88))
 				{
 					state_system = 1;
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 1);
+					HAL_Delay(25);
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
 				}
 				// If read and wrong, change to state system 2
 				else
 				{
 					state_system = 2;
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 1);
+					HAL_Delay(25);
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
 				}
 				
 				break;
 			
+			
 			// State system 1: Read password
 			case 1:
-				LCD1.print = LCD_print((uint8_t*)"Please enter your password.");
+				LCD1.clear = LCD_Clear();
+				LCD1.gotoXY = LCD_Goto_XY(0,0);
+				LCD1.print = LCD_print((uint8_t*)"Enter password.");
 				
 				// Enter password
-				uint8_t count = 0;
+				count = 0;
+				password = 0;
+				LCD1.gotoXY = LCD_Goto_XY(count,1);
 				while(count < strlen(password_chr))
 				{
-					button_value = readButton();
+					keypad.button = readButton();
 					
-					if(button_value != 16)
+					if(keypad.button != 16)
 					{
-						password = password + button_value;
+						password = password + keypad.button;
+						LCD1.print = LCD_print((uint8_t*)"*");
 						count++;
+						LCD1.gotoXY = LCD_Goto_XY(count,1);
 					}
+					HAL_Delay(200);
 				}
 				
 				// Check whether is password corrected
@@ -184,28 +200,50 @@ int main(void)
 				if(password == password_int)
 				{
 					state_system = 3;
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 1);
+					HAL_Delay(25);
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
 				}
 				// If wrong, change to state system 4	
 				else 
 				{
 					state_system = 4;
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 1);
+					HAL_Delay(25);
+					HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, 0);
 				}
 				break;
 			
 			case 2:
+				LCD1.clear = LCD_Clear();
+				LCD1.gotoXY = LCD_Goto_XY(0,0);
 				LCD1.print = LCD_print((uint8_t*)"Wrong card!");
+				str[0] = 0x70;
+				str[1] = 0x20;
+				str[2] = 0x00;
+				str[3] = 0x00;
+				str[4] = 0x00;
+				HAL_Delay(2000);
 				state_system = 0;
 				break;
 			
 			// Pass 2 step (state system 0 & 1) and open the door
 			case 3:
+				LCD1.clear = LCD_Clear();
+				LCD1.gotoXY = LCD_Goto_XY(0,0);
 				LCD1.print = LCD_print((uint8_t*)"Hello Nhan!");
 				HAL_GPIO_WritePin(DOOR_PORT, DOOR_PIN, GPIO_PIN_RESET);
+				state_system = 0;
+				HAL_Delay(5000);
+				HAL_GPIO_WritePin(DOOR_PORT, DOOR_PIN, GPIO_PIN_SET);
 				break;
 			
 			case 4:
+				LCD1.clear = LCD_Clear();
+				LCD1.gotoXY = LCD_Goto_XY(0,0);
 				LCD1.print = LCD_print((uint8_t*)"Wrong password!");
 				state_system = 1;
+				HAL_Delay(2000);
 				break;
 		}
   }
